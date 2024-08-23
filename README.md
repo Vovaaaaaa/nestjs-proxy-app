@@ -16,8 +16,8 @@ It allows you to request a page from a given URL and get a proxied version of th
 1. **Clone the Repository**
 
    ```bash
-   git clone https://github.com/yourusername/your-repo.git
-   cd your-repo
+   git clone https://github.com/Vovaaaaaa/nestjs-proxy-app.git
+   cd <path-to-nestjs-proxy-app-repo>
 
 2. **Install Dependencies**
 
