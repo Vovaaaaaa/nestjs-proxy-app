@@ -41,7 +41,7 @@ It allows you to request a page from a given URL and get a proxied version of th
    ```http
    http://localhost:3000/?url={TARGET_URL}
 
-   Replace {TARGET_URL} with the URL of the page you want to proxy. For example:
+  Replace {TARGET_URL} with the URL of the page you want to proxy. For example:
    http://localhost:3000/?url=https://docs.nestjs.com/websockets/gateways
    
 ## Running Tests
