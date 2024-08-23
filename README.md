@@ -45,7 +45,7 @@ It allows you to request a page from a given URL and get a proxied version of th
 
    ```http
    http://localhost:3000/?url=https://docs.nestjs.com/websockets/gateways
-   
+
 ## Running Tests
 
 1. **Running tests**
