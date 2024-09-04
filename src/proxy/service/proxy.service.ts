@@ -20,7 +20,11 @@ export class ProxyService {
     try {
       this.logger.log('Building page content.');
 
-      browser = await puppeteer.launch();
+      // browser = await puppeteer.launch();
+      const browser = await puppeteer.launch({
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+
       const page = await browser.newPage();
 
       await this.loadPage(page, url);
@@ -48,6 +52,7 @@ export class ProxyService {
     this.logger.log('Loading page.');
     await page.goto(url, { waitUntil: 'networkidle0' });
   }
+  
 
   protected async fixAssetUrls(page: puppeteer.Page, baseUrl: string): Promise<void> {
     this.logger.log('Getting content from original url.');
@@ -131,8 +136,8 @@ export class ProxyService {
   }
 
   protected async extractModifiedHtml(page: puppeteer.Page): Promise<string> {
-    this.logger.log('Extract modified html.');
-
+    this.logger.log('Extracting and modifying HTML.');
+  
     return await page.evaluate(() => {
       const walker = document.createTreeWalker(
         document.body,
@@ -141,11 +146,13 @@ export class ProxyService {
       );
       let node;
       while ((node = walker.nextNode())) {
+        // Modify the text content by appending "™" to words of exactly 6 characters
         node.textContent = node.textContent.replace(/\b\w{6}\b/g, '$&™');
       }
       return document.documentElement.outerHTML;
     });
   }
+  
 
   private async enableRequestLogging(page: puppeteer.Page): Promise<void> {
     await page.setRequestInterception(true);
