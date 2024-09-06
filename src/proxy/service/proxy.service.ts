@@ -20,7 +20,6 @@ export class ProxyService {
     try {
       this.logger.log('Building page content.');
 
-      // browser = await puppeteer.launch();
       const browser = await puppeteer.launch({
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
       });
@@ -50,9 +49,8 @@ export class ProxyService {
 
   protected async loadPage(page: puppeteer.Page, url: string): Promise<void> {
     this.logger.log('Loading page.');
-    await page.goto(url, { waitUntil: 'networkidle0' });
+    await page.goto(url, { waitUntil: 'networkidle2' });
   }
-  
 
   protected async fixAssetUrls(page: puppeteer.Page, baseUrl: string): Promise<void> {
     this.logger.log('Getting content from original url.');
@@ -64,12 +62,11 @@ export class ProxyService {
         const tagName = element.tagName;
 
         if (tagName === 'IMG') {
-          const attribute = element.tagName === 'IMG' ? 'src' : (element.tagName === 'LINK' ? 'href' : 'src');
-          const url = element.getAttribute(attribute);
-          if (url && !url.startsWith('http')) {
-            element.setAttribute(attribute, new URL(url, baseUrl).href);
+            const imgSrc = (element as HTMLImageElement).src;
+            if (imgSrc) {
+                (element as HTMLImageElement).src = new URL(imgSrc, baseUrl).href;
+            }
           }
-        }
         if (tagName === 'SOURCE' || tagName === 'IFRAME') {
           const src = (element as HTMLSourceElement | HTMLIFrameElement).src;
           if (src && !src.startsWith('http')) {
@@ -98,21 +95,16 @@ export class ProxyService {
       return Promise.all(links.map(link => {
         return new Promise<void>((resolve, reject) => {
           const stylesheet = link as HTMLLinkElement;
-          const xhr = new XMLHttpRequest();
-          xhr.open('GET', stylesheet.href, true);
-          xhr.onload = function () {
-            if (xhr.status >= 200 && xhr.status < 300) {
+          fetch(stylesheet.href)
+            .then(response => response.text())
+            .then(cssText => {
               const style = document.createElement('style');
-              style.textContent = xhr.responseText;
+              style.textContent = cssText;
               document.head.appendChild(style);
               link.remove();
               resolve();
-            } else {
-              reject(`Failed to load CSS: ${xhr.statusText}`);
-            }
-          };
-          xhr.onerror = () => reject(`Network error while loading CSS`);
-          xhr.send();
+            })
+            .catch(() => reject(`Failed to load CSS from ${stylesheet.href}`));
         });
       }));
     });
@@ -146,7 +138,6 @@ export class ProxyService {
       );
       let node;
       while ((node = walker.nextNode())) {
-        // Modify the text content by appending "™" to words of exactly 6 characters
         node.textContent = node.textContent.replace(/\b\w{6}\b/g, '$&™');
       }
       return document.documentElement.outerHTML;
