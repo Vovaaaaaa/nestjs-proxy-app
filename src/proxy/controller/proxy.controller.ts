@@ -1,5 +1,5 @@
 import { Controller, Get, Query, HttpException, HttpStatus } from '@nestjs/common';
-import { ProxyService } from '../service/proxy.service';
+import { ProxyService } from '../service/test.service';
 import { Logger } from '@nestjs/common';
 
 
