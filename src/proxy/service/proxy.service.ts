@@ -61,6 +61,10 @@ export class ProxyService {
       elements.forEach(element => {
         const tagName = element.tagName;
 
+        function shouldUpdateUrl(url: string | null | undefined): boolean {
+            return url != null && !url.startsWith('http');
+          }
+
         if (tagName === 'IMG') {
             const imgSrc = (element as HTMLImageElement).src;
             if (imgSrc) {
@@ -69,17 +73,17 @@ export class ProxyService {
           }
         if (tagName === 'SOURCE' || tagName === 'IFRAME') {
           const src = (element as HTMLSourceElement | HTMLIFrameElement).src;
-          if (src && !src.startsWith('http')) {
+          if (shouldUpdateUrl(src)) {
             (element as HTMLSourceElement | HTMLIFrameElement).src = new URL(src, baseUrl).href;
           }
         } else if (tagName === 'LINK') {
           const href = (element as HTMLLinkElement).href;
-          if (href && !href.startsWith('http')) {
+          if (shouldUpdateUrl(href)) {
             (element as HTMLLinkElement).href = new URL(href, baseUrl).href;
           }
         } else if (tagName === 'SCRIPT') {
           const src = (element as HTMLScriptElement).src;
-          if (src && !src.startsWith('http')) {
+          if (shouldUpdateUrl(src)) {
             (element as HTMLScriptElement).src = new URL(src, baseUrl).href;
           }
         }
