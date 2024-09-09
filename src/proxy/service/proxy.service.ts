@@ -62,16 +62,15 @@ export class ProxyService {
         const tagName = element.tagName;
 
         function shouldUpdateUrl(url: string | null | undefined): boolean {
-            return url != null && !url.startsWith('http');
-          }
+          return url != null && !url.startsWith('http');
+        }
 
         if (tagName === 'IMG') {
-            const imgSrc = (element as HTMLImageElement).src;
-            if (imgSrc) {
-                (element as HTMLImageElement).src = new URL(imgSrc, baseUrl).href;
-            }
+          const imgSrc = (element as HTMLImageElement).src;
+          if (imgSrc) {
+            (element as HTMLImageElement).src = new URL(imgSrc, baseUrl).href;
           }
-        if (tagName === 'SOURCE' || tagName === 'IFRAME') {
+        } else if (tagName === 'SOURCE' || tagName === 'IFRAME') {
           const src = (element as HTMLSourceElement | HTMLIFrameElement).src;
           if (shouldUpdateUrl(src)) {
             (element as HTMLSourceElement | HTMLIFrameElement).src = new URL(src, baseUrl).href;
