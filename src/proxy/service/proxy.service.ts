@@ -65,31 +65,35 @@ export class ProxyService {
           return url != null && !url.startsWith('http');
         }
 
-        if (tagName === 'IMG') {
-          const imgSrc = (element as HTMLImageElement).src;
-          if (imgSrc) {
-            (element as HTMLImageElement).src = new URL(imgSrc, baseUrl).href;
-          }
-        } else if (tagName === 'SOURCE' || tagName === 'IFRAME') {
-          const src = (element as HTMLSourceElement | HTMLIFrameElement).src;
-          if (shouldUpdateUrl(src)) {
-            (element as HTMLSourceElement | HTMLIFrameElement).src = new URL(src, baseUrl).href;
-          }
-        } else if (tagName === 'LINK') {
-          const href = (element as HTMLLinkElement).href;
-          if (shouldUpdateUrl(href)) {
-            (element as HTMLLinkElement).href = new URL(href, baseUrl).href;
-          }
-        } else if (tagName === 'SCRIPT') {
-          const src = (element as HTMLScriptElement).src;
-          if (shouldUpdateUrl(src)) {
-            (element as HTMLScriptElement).src = new URL(src, baseUrl).href;
-          }
+        function updateElementUrl(element: any, currentUrl: string | null | undefined, baseUrl: string, property: 'src' | 'href') {
+            if (currentUrl) {
+              element[property] = new URL(currentUrl, baseUrl).href;
+            }
         }
+
+        if (tagName === 'IMG') {
+            const imageElement = element as HTMLImageElement;
+            updateElementUrl(imageElement, imageElement.src, baseUrl, 'src');
+          } else if (tagName === 'SOURCE' || tagName === 'IFRAME') {
+            const sourceElement = element as HTMLSourceElement | HTMLIFrameElement;
+            if (shouldUpdateUrl(sourceElement.src)) {
+              updateElementUrl(sourceElement, sourceElement.src, baseUrl, 'src');
+            }
+          } else if (tagName === 'LINK') {
+            const linkElement = element as HTMLLinkElement;
+            if (shouldUpdateUrl(linkElement.href)) {
+              updateElementUrl(linkElement, linkElement.href, baseUrl, 'href');
+            }
+          } else if (tagName === 'SCRIPT') {
+            const scriptElement = element as HTMLScriptElement;
+            if (shouldUpdateUrl(scriptElement.src)) {
+              updateElementUrl(scriptElement, scriptElement.src, baseUrl, 'src');
+            }
+          }
       });
     }, baseUrl);
   }
-
+  
   protected async loadStylesheets(page: puppeteer.Page): Promise<void> {
     this.logger.log('Loading stylesheets.');
 
