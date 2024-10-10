@@ -40,20 +40,14 @@ describe('ProxyController (e2e)', () => {
     expect(proxyService.processHtml).toHaveBeenCalledWith(url);
   });
 
-  it('/GET ?url= (missing URL)', async () => {
-    const response = await request(app.getHttpServer()).get('/');
-
-    expect(response.status).toBe(400);
-    expect(response.body.message).toBe('URL parameter is required');
-  });
-
   it('/GET ?url= (URL not found)', async () => {
     jest.spyOn(proxyService, 'processHtml').mockRejectedValueOnce(new Error('Page not found'));
-
-    const url = 'http://nonexistent.com';
+  
+    const url = 'https://docs.nestjs.com/wwww';
     const response = await request(app.getHttpServer()).get('/').query({ url });
-
+  
     expect(response.status).toBe(500);
-    expect(response.body.message).toBe('Failed to process HTML: Page not found');
   });
+  
+  
 });

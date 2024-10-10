@@ -1,15 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ProxyController } from './proxy/controller/proxy.controller';
-// import { ProxyService } from './proxy/service/proxy.service';
-import { ProxyService } from './proxy/service/test.service';
+import { ProxyService } from './proxy/service/proxy.service';
 import { ConfigModule } from '@nestjs/config';
 
+
 @Module({
-  imports: [
-    ConfigModule.forRoot({
-      isGlobal: true, 
-    }),
-  ],
+  imports: [ConfigModule.forRoot()],
   controllers: [ProxyController],
   providers: [ProxyService],
 })  

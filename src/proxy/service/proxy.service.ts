@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import * as puppeteer from 'puppeteer';
-import { Logger } from '@nestjs/common';
-import { PageNotFoundException } from '../exception/page-not-found.exception';
+import * as cheerio from 'cheerio';
 import { ConfigService } from '@nestjs/config';
+import { PageNotFoundException } from '../exception/page-not-found.exception';
+import { Logger } from '@nestjs/common';
+
 
 @Injectable()
 export class ProxyService {
@@ -11,155 +13,97 @@ export class ProxyService {
 
   constructor(private configService: ConfigService) {}
 
-  getSecretKey(): string {
-    return this.configService.get<string>('SECRET_KEY');
-  }
-
   async processHtml(url: string): Promise<string> {
-    let browser: puppeteer.Browser | undefined;
+    this.logger.log('Processing html.');
+    if (!url) {
+      throw new Error('URL parameter is missing');
+    }
+  
+    const browser = await puppeteer.launch({
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+  
     try {
-      this.logger.log('Building page content.');
-
-      const browser = await puppeteer.launch({
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      });
-
       const page = await browser.newPage();
+      await page.setRequestInterception(true);
+      page.on('request', (req) => {
+        const resourceType = req.resourceType();
+        if (resourceType === 'font' || resourceType === 'image') {
+          req.abort();
+        } else {
+          req.continue();
+        }
+      });
+  
+      await this.loadPage(page, url);       
 
-      await this.loadPage(page, url);
-      await this.fixAssetUrls(page, url);
-      await this.loadStylesheets(page);
-      await this.updateLinks(page);
-      await this.enableRequestLogging(page);
+      let content = await page.content();
+      content = this.updateAssetUrls(content, url);
+      content = this.addTrademarkToWords(content);
+      content = this.updateLinks(content, url);
 
-      return await this.extractModifiedHtml(page);
+      return content;
     } catch (error) {
-      this.logger.log('An error occurred', error.stack);
-      if (error.message.includes('404')) { 
-        throw new PageNotFoundException(`Page not found for URL: ${url}`);
+      this.logger.error(`Failed to process the page: ${error.message}`);
+      if (error instanceof PageNotFoundException) {
+        throw error;
       }
-      throw new Error(`Failed to process HTML: ${error.message}`);
+      throw new Error(`Failed to process HTML: ${error}`);
     } finally {
-      if (browser) {
-        this.logger.log('Close resource.');
-        await browser.close();
-      }
+      await browser.close();
     }
   }
 
   protected async loadPage(page: puppeteer.Page, url: string): Promise<void> {
-    this.logger.log('Loading page.');
-    await page.goto(url, { waitUntil: 'networkidle2' });
-  }
-
-  protected async fixAssetUrls(page: puppeteer.Page, baseUrl: string): Promise<void> {
-    this.logger.log('Getting content from original url.');
-
-    await page.evaluate((baseUrl) => {
-      const elements = document.querySelectorAll('link[rel="stylesheet"], script[src], img[src], source[src], iframe[src]');
-
-      elements.forEach(element => {
-        const tagName = element.tagName;
-
-        function shouldUpdateUrl(url: string | null | undefined): boolean {
-          return url != null && !url.startsWith('http');
-        }
-
-        function updateElementUrl(element: any, currentUrl: string | null | undefined, baseUrl: string, property: 'src' | 'href') {
-            if (currentUrl) {
-              element[property] = new URL(currentUrl, baseUrl).href;
-            }
-        }
-
-        if (tagName === 'IMG') {
-            const imageElement = element as HTMLImageElement;
-            updateElementUrl(imageElement, imageElement.src, baseUrl, 'src');
-          } else if (tagName === 'SOURCE' || tagName === 'IFRAME') {
-            const sourceElement = element as HTMLSourceElement | HTMLIFrameElement;
-            if (shouldUpdateUrl(sourceElement.src)) {
-              updateElementUrl(sourceElement, sourceElement.src, baseUrl, 'src');
-            }
-          } else if (tagName === 'LINK') {
-            const linkElement = element as HTMLLinkElement;
-            if (shouldUpdateUrl(linkElement.href)) {
-              updateElementUrl(linkElement, linkElement.href, baseUrl, 'href');
-            }
-          } else if (tagName === 'SCRIPT') {
-            const scriptElement = element as HTMLScriptElement;
-            if (shouldUpdateUrl(scriptElement.src)) {
-              updateElementUrl(scriptElement, scriptElement.src, baseUrl, 'src');
-            }
-          }
-      });
-    }, baseUrl);
-  }
+    const response = await page.goto(url, { waitUntil: 'networkidle2', timeout: 0 });
   
-  protected async loadStylesheets(page: puppeteer.Page): Promise<void> {
-    this.logger.log('Loading stylesheets.');
-
-    await page.evaluate(() => {
-      const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
-      return Promise.all(links.map(link => {
-        return new Promise<void>((resolve, reject) => {
-          const stylesheet = link as HTMLLinkElement;
-          fetch(stylesheet.href)
-            .then(response => response.text())
-            .then(cssText => {
-              const style = document.createElement('style');
-              style.textContent = cssText;
-              document.head.appendChild(style);
-              link.remove();
-              resolve();
-            })
-            .catch(() => reject(`Failed to load CSS from ${stylesheet.href}`));
-        });
-      }));
-    });
+    if (response.status() >= 400) {
+      throw new PageNotFoundException(`Page not found for URL: ${url}`);
+    }
   }
 
-  protected async updateLinks(page: puppeteer.Page): Promise<void> {
-    this.logger.log('Updating links.');
+  protected updateAssetUrls(html: string, baseUrl: string): string {
+    this.logger.log('Updating asset urls.');
 
-    const port = this.configService.get<string>('PORT');
+    const baseDomain = new URL(baseUrl).origin;
+    return html
+      .replace(/src="\/([^"]*)"/g, `src="${baseDomain}/$1"`)
+      .replace(/href="\/([^"]*)"/g, `href="${baseDomain}/$1"`);
+  }
+
+  protected updateLinks(html: string, baseUrl: string): string {
+    this.logger.log('Updating URLs to go through localhost.');
+  
+    const $ = cheerio.load(html);
+    const port = this.configService.get<number>('PORT');
     const proxyUrl = `http://localhost:${port}/?url=`;
-
-    await page.evaluate((proxyUrl) => {
-      const links = document.querySelectorAll('a[href]');
-      links.forEach(link => {
-        const anchor = link as HTMLAnchorElement;
-        const originalHref = anchor.href;
-        const newHref = `${proxyUrl}${originalHref}`;
-        anchor.href = newHref;
-      });
-    }, proxyUrl);
-  }
-
-  protected async extractModifiedHtml(page: puppeteer.Page): Promise<string> {
-    this.logger.log('Extracting and modifying HTML.');
+    const baseDomain = new URL(baseUrl).origin;
   
-    return await page.evaluate(() => {
-      const walker = document.createTreeWalker(
-        document.body,
-        NodeFilter.SHOW_TEXT,
-        null
-      );
-      let node;
-      while ((node = walker.nextNode())) {
-        node.textContent = node.textContent.replace(/\b\w{6}\b/g, '$&™');
+    $('a').each((_, element) => {
+      const originalHref = $(element).attr('href');  
+      if (originalHref && originalHref.startsWith(baseDomain)) {
+        const modifiedHref = proxyUrl + originalHref;
+        $(element).attr('href', modifiedHref);
       }
-      return document.documentElement.outerHTML;
     });
+    return $.html();
   }
   
+  protected addTrademarkToWords(html: string): string {
+    this.logger.log('Adding Trademark.');
 
-  private async enableRequestLogging(page: puppeteer.Page): Promise<void> {
-    await page.setRequestInterception(true);
-    page.on('request', request => {
-      if (request.url().includes('image') || request.url().includes('css') || request.url().includes('js')) {
-        console.log('Requesting:', request.url());
+    const $ = cheerio.load(html);
+    $('body *').each((_, element) => {
+      const tagName = $(element).prop('tagName').toLowerCase();
+      if (tagName !== 'script' && tagName !== 'style') {
+        $(element).contents().each((_, content) => {
+          if (content.type === 'text') {
+            content.data = content.data.replace(/\b([a-zA-Z]{6})\b/g, '$1™');
+          }
+        });
       }
-      request.continue();
     });
+    return $.html();
   }
-
+  
 }
