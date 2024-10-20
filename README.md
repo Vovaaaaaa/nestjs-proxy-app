@@ -27,14 +27,14 @@ It allows you to request a page from a given URL and get a proxied version of th
 3. **Build Docker Image**
 
    ```bash
-   docker-compose build
+   docker build -t nestjs-app .
 
 ## Running the Application
 
 1. **Start the Application**
 
    ```bash
-   docker-compose up
+   docker run --env-file .env -p 3000:3000 nestjs-app
 
 2. **Access the Proxy Service**
 
@@ -45,10 +45,17 @@ It allows you to request a page from a given URL and get a proxied version of th
 
 ## Running Tests
 
-1. **Running tests**
+### 1. Unit Tests
 
    ```bash
-   docker-compose exec app npm run test
+   npm run test
+
+### 2. End-to-End (E2E) Tests
+
+   ```bash
+   npm run test:e2e
+
+
 
 
 
