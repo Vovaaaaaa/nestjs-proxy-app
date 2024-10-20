@@ -45,15 +45,16 @@ It allows you to request a page from a given URL and get a proxied version of th
 
 ## Running Tests
 
-### 1. Unit Tests
+1. **Unit Tests**
 
    ```bash
    npm run test
 
-### 2. End-to-End (E2E) Tests
+1. **End-to-End (E2E) Tests**
 
    ```bash
    npm run test:e2e
+
 
 
 
