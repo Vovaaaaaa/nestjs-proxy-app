@@ -3,10 +3,14 @@ import { ProxyController } from './proxy/controller/proxy.controller';
 import { ProxyService } from './proxy/service/proxy.service';
 import { ConfigModule } from '@nestjs/config';
 
-
 @Module({
-  imports: [ConfigModule.forRoot()],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
+  ],
   controllers: [ProxyController],
   providers: [ProxyService],
-})  
+})
 export class AppModule {}

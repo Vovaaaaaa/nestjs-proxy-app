@@ -15,26 +15,20 @@ export class ProxyService {
 
   async processHtml(url: string): Promise<string> {
     this.logger.log('Processing html.');
+    
     if (!url) {
       throw new Error('URL parameter is missing');
     }
   
     const browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      executablePath: process.env.CHROME_BIN || '/usr/bin/chromium-browser',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--headless', '--disable-gpu'],
+      headless: true,
     });
-  
+    
     try {
       const page = await browser.newPage();
-      await page.setRequestInterception(true);
-      page.on('request', (req) => {
-        const resourceType = req.resourceType();
-        if (resourceType === 'font' || resourceType === 'image') {
-          req.abort();
-        } else {
-          req.continue();
-        }
-      });
-  
+      await this.setupPageInterception(page);
       await this.loadPage(page, url);       
 
       let content = await page.content();
@@ -104,6 +98,20 @@ export class ProxyService {
       }
     });
     return $.html();
+  }
+
+  private async setupPageInterception(page: puppeteer.Page) {
+    await page.setBypassCSP(true);
+    await page.setRequestInterception(true);
+    
+    page.on('request', (req) => {
+      const resourceType = req.resourceType();
+      if (resourceType === 'font' || resourceType === 'image') {
+        req.abort();
+      } else {
+        req.continue();
+      }
+    });
   }
   
 }

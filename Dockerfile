@@ -1,48 +1,39 @@
-# Use an official Node.js runtime as a parent image
-FROM node:18
+# Use an official Node.js image as the base
+FROM node:18-alpine
 
-# Install dependencies required by Puppeteer
-RUN apt-get update && apt-get install -y \
-    libnss3 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libxkbcommon-x11-0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    libgbm1 \
-    libasound2 \
-    libxshmfence1 \
-    libx11-xcb1 \
-    libxfixes3 \
-    libgl1-mesa-glx \
-    libpangocairo-1.0-0 \
-    fonts-liberation \
-    libappindicator3-1 \
-    libjpeg-dev \
-    libwebp-dev \
+# Install required dependencies
+RUN apk add --no-cache \
+    bash \
+    curl \
+    freetype \
+    libpng \
+    libjpeg-turbo \
+    nss \
+    libx11 \
+    libxcomposite \
+    libxrandr \
+    libxi \
     xdg-utils \
-    && rm -rf /var/lib/apt/lists/*
+    ttf-freefont \
+    chromium \
+    libstdc++ \
+    harfbuzz
 
-# Set the working directory in the container
+# Set the environment variable for Puppeteer to use Chromium
+ENV CHROME_BIN=/usr/bin/chromium-browser
+
+# Set the working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json into the container at /app
+# Install app dependencies
 COPY package*.json ./
-
-# Install Node.js dependencies
 RUN npm install
 
-# Copy the rest of your application code to the container
+# Copy the rest of the application
 COPY . .
 
-# Build the NestJS app
-RUN npm run build
-
-# Expose the application port
+# Expose the required port
 EXPOSE 3000
 
-# Run the app
-CMD ["npm", "run", "start:prod"]
+# Start the app
+CMD ["npm", "run", "start"]
