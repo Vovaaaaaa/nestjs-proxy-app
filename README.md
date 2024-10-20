@@ -50,7 +50,7 @@ It allows you to request a page from a given URL and get a proxied version of th
    ```bash
    npm run test
 
-1. **End-to-End (E2E) Tests**
+2. **End-to-End (E2E) Tests**
 
    ```bash
    npm run test:e2e
